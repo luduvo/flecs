@@ -2493,6 +2493,7 @@ void flecs_table_merge(
         flecs_table_traversable_add(dst_table, src_table->_->traversable_count);
         flecs_table_traversable_add(src_table, -src_table->_->traversable_count);
         ecs_assert(src_table->_->traversable_count == 0, ECS_INTERNAL_ERROR, NULL);
+        flecs_table_mark_table_dirty(world, src_table, 0);
     }
 
     flecs_table_check_sanity(src_table);
