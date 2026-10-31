@@ -1383,6 +1383,7 @@ void flecs_table_mark_table_dirty(
     ecs_table_t *table,
     int32_t index)
 {
+    world->info.dirty_count_total ++;
     if (table->dirty_state) {
         table->dirty_state[index] ++;
     }
@@ -1398,6 +1399,7 @@ void flecs_table_mark_dirty(
     ecs_entity_t component)
 {
     ecs_assert(table != NULL, ECS_INTERNAL_ERROR, NULL);
+    world->info.dirty_count_total ++;
 
     if (table->dirty_state) {
         int32_t column;

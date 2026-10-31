@@ -493,6 +493,7 @@ void flecs_query_mark_fields_dirty(
     }
 
     ecs_world_t *world = q->real_world;
+    world->info.dirty_count_total ++;
     int16_t i, field_count = q->field_count;
     for (i = 0; i < field_count; i ++) {
         ecs_termset_t field_bit = (ecs_termset_t)(1u << i);
@@ -553,6 +554,7 @@ void flecs_query_mark_fixed_fields_dirty(
     }
 
     ecs_world_t *world = q->real_world;
+    world->info.dirty_count_total ++;
     int32_t i, field_count = q->field_count;
     for (i = 0; i < field_count; i ++) {
         if (!(fixed_write_fields & flecs_ito(uint32_t, 1 << i))) {

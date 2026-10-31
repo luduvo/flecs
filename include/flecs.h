@@ -1529,6 +1529,7 @@ typedef struct ecs_world_info_t {
     int64_t systems_ran_total;        /**< Total number of systems run. */
     int64_t observers_ran_total;      /**< Total number of times an observer was invoked. */
     int64_t queries_ran_total;        /**< Total number of times a query was evaluated. */
+    int64_t dirty_count_total;
 
     int32_t tag_id_count;             /**< Number of tag (no data) IDs in the world. */
     int32_t component_id_count;       /**< Number of component (data) IDs in the world. */
