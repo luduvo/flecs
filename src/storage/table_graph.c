@@ -624,6 +624,7 @@ void flecs_init_table(
 {
     table->flags = 0;
     table->dirty_state = NULL;
+    table->dirty_stamp = 0;
     table->_->lock = 0;
     table->_->generation = 0;
 

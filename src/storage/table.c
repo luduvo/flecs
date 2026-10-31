@@ -1383,7 +1383,7 @@ void flecs_table_mark_table_dirty(
     ecs_table_t *table,
     int32_t index)
 {
-    world->info.dirty_count_total ++;
+    table->dirty_stamp = ++ world->info.dirty_count_total;
     if (table->dirty_state) {
         table->dirty_state[index] ++;
     }
@@ -1399,7 +1399,7 @@ void flecs_table_mark_dirty(
     ecs_entity_t component)
 {
     ecs_assert(table != NULL, ECS_INTERNAL_ERROR, NULL);
-    world->info.dirty_count_total ++;
+    table->dirty_stamp = ++ world->info.dirty_count_total;
 
     if (table->dirty_state) {
         int32_t column;
@@ -2904,6 +2904,13 @@ int32_t ecs_table_count(
 {
     ecs_assert(table != NULL, ECS_INTERNAL_ERROR, NULL);
     return table->data.count;
+}
+
+int64_t ecs_table_get_dirty_stamp(
+    const ecs_table_t *table)
+{
+    ecs_assert(table != NULL, ECS_INTERNAL_ERROR, NULL);
+    return table->dirty_stamp;
 }
 
 int32_t ecs_table_size(

@@ -6098,6 +6098,10 @@ FLECS_API
 int32_t ecs_table_count(
     const ecs_table_t *table);
 
+FLECS_API
+int64_t ecs_table_get_dirty_stamp(
+    const ecs_table_t *table);
+
 /** Return the allocated size of the table.
  * This operation returns the number of elements allocated in the table 
  * per column.

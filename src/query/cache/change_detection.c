@@ -530,6 +530,7 @@ void flecs_query_mark_fields_dirty(
         ecs_assert(type_index >= 0, ECS_INTERNAL_ERROR, NULL);
 
         ecs_assert(table != NULL, ECS_INTERNAL_ERROR, NULL);
+        table->dirty_stamp = world->info.dirty_count_total;
         int32_t *dirty_state = table->dirty_state;
         if (!dirty_state) {
             continue;
@@ -570,6 +571,7 @@ void flecs_query_mark_fixed_fields_dirty(
             continue;
         }
 
+        table->dirty_stamp = world->info.dirty_count_total;
         int32_t *dirty_state = table->dirty_state;
         if (!dirty_state) {
             continue;

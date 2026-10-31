@@ -159,6 +159,7 @@ struct ecs_table_t {
 
     int16_t *component_map;          /* Get column for component id */
     int32_t *dirty_state;            /* Keep track of changes in columns */
+    int64_t dirty_stamp;
     int16_t *column_map;             /* Map type index <-> column
                                       *  - 0..count(T):        type index -> column
                                       *  - count(T)..count(C): column -> type index
