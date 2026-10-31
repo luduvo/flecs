@@ -526,6 +526,13 @@ void flecs_query_mark_fields_dirty(
             }
         }
 
+        /* A tag or sparse field has no column, so it has no dirty slot.
+         * Its column_map entry is -1, which would land on slot 0 and
+         * report that the table gained or lost entities. */
+        if (tr->column == -1) {
+            continue;
+        }
+
         int32_t type_index = tr->index;
         ecs_assert(type_index >= 0, ECS_INTERNAL_ERROR, NULL);
 
