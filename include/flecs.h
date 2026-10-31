@@ -3084,6 +3084,13 @@ const ecs_entity_t* ecs_bulk_new_w_id(
     ecs_id_t component,
     int32_t count);
 
+FLECS_API
+ecs_table_t* ecs_table_bulk_add(
+    ecs_world_t *world,
+    ecs_table_t *table,
+    const ecs_type_t *ids,
+    void **data);
+
 /** Clone an entity.
  * This operation clones the components of one entity into another entity. If
  * no destination entity is provided, a new entity will be created. Component

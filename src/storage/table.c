@@ -2355,6 +2355,30 @@ void flecs_table_merge_column(
     src->data = NULL;
 }
 
+/* Grow a column the source table does not have, construct it and run its add
+ * hooks for the merged rows, as flecs_table_grow_data does for appended rows. */
+static
+void flecs_table_merge_add_column(
+    ecs_world_t *world,
+    ecs_table_t *table,
+    int32_t column_index,
+    ecs_entity_t *entities,
+    int32_t dst_count,
+    int32_t src_count,
+    int32_t column_size)
+{
+    ecs_column_t *column = &table->data.columns[column_index];
+    const ecs_type_info_t *ti = column->ti;
+    ecs_assert(ti->size != 0, ECS_INTERNAL_ERROR, NULL);
+    ecs_vec_t vec = ecs_vec_from_column(column, table, ti->size);
+    flecs_table_grow_column(world, table, column_index, &vec, ti, src_count,
+        column_size, true);
+    column->data = vec.array;
+    flecs_table_invoke_add_hooks(world, table, column_index,
+        &entities[dst_count], dst_count, src_count, false);
+    flecs_table_mark_table_dirty(world, table, column_index + 1);
+}
+
 /* Merge storage of two tables. */
 static
 void flecs_table_merge_data(
@@ -2384,6 +2408,11 @@ void flecs_table_merge_data(
         ECS_INTERNAL_ERROR, NULL);
     int32_t column_size = dst_entities.size;
 
+    /* Hooks of added columns read the merged entity array. Count and size
+     * stay old until the end, the column vectors are built from them. */
+    dst_table->data.entities = dst_entities.array;
+    flecs_table_update_overrides(world, dst_table);
+
     for (; (i_new < dst_column_count) && (i_old < src_column_count); ) {
         ecs_column_t *dst_column = &dst_columns[i_new];
         ecs_column_t *src_column = &src_columns[i_old];
@@ -2404,10 +2433,8 @@ void flecs_table_merge_data(
             i_new ++;
             i_old ++;
         } else if (dst_id < src_id) {
-            /* New column, make sure vector is large enough. */
-            ecs_vec_set_size(NULL, &dst_vec, dst_elem_size, column_size);
-            dst_column->data = dst_vec.array;
-            flecs_table_invoke_ctor(world, dst_table, i_new, dst_count, src_count);
+            flecs_table_merge_add_column(world, dst_table, i_new,
+                dst_entities.array, dst_count, src_count, column_size);
             i_new ++;
         } else if (dst_id > src_id) {
             /* Old column does not occur in new table, destruct */
@@ -2423,13 +2450,8 @@ void flecs_table_merge_data(
 
     /* Initialize remaining columns */
     for (; i_new < dst_column_count; i_new ++) {
-        ecs_column_t *column = &dst_columns[i_new];
-        int32_t elem_size = column->ti->size;
-        ecs_assert(elem_size != 0, ECS_INTERNAL_ERROR, NULL);
-        ecs_vec_t vec = ecs_vec_from_column(column, dst_table, elem_size);
-        ecs_vec_set_size(NULL, &vec, elem_size, column_size);
-        column->data = vec.array;
-        flecs_table_invoke_ctor(world, dst_table, i_new, dst_count, src_count);
+        flecs_table_merge_add_column(world, dst_table, i_new,
+            dst_entities.array, dst_count, src_count, column_size);
     }
 
     /* Destruct remaining columns */

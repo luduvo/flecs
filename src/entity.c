@@ -1509,6 +1509,119 @@ error:
     return NULL;
 }
 
+/* Add ids to every entity of a table with one table merge, the bulk form of
+ * ecs_add_id/ecs_set_id over all rows, as flecs_remove_from_table is for
+ * removal. OnAdd runs once over the moved rows. data[i], when not NULL, holds
+ * one value per row (in table order) for ids->array[i], which must be a
+ * component stored in a table column. As in a deferred command batch
+ * (flecs_cmd_batch_for_entity), the values land before OnAdd, so observers
+ * never read a constructed but unset value, and OnSet runs once for the range.
+ * Everything is checked before the first row moves. */
+ecs_table_t* ecs_table_bulk_add(
+    ecs_world_t *world,
+    ecs_table_t *table,
+    const ecs_type_t *ids,
+    void **data)
+{
+    flecs_poly_assert(world, ecs_world_t);
+
+    ecs_table_diff_builder_t diff = ECS_TABLE_DIFF_INIT;
+    flecs_table_diff_builder_init(world, &diff);
+
+    ecs_check(table != NULL, ECS_INVALID_PARAMETER, NULL);
+    ecs_check(ids != NULL, ECS_INVALID_PARAMETER, NULL);
+    ecs_check(!(world->flags & EcsWorldReadonly), ECS_INVALID_OPERATION,
+        "cannot bulk add to a table while the world is readonly");
+    ecs_check(!world->stages[0]->defer, ECS_INVALID_OPERATION,
+        "cannot bulk add to a table while the world is deferred");
+
+    flecs_check_exclusive_world_access_write(world);
+
+    ecs_table_t *dst = table;
+    int32_t i;
+    for (i = 0; i < ids->count; i ++) {
+        dst = flecs_find_table_add(world, dst, ids->array[i], &diff);
+        ecs_check(dst != NULL, ECS_INVALID_PARAMETER,
+            "cannot add '%s' with ecs_table_bulk_add()",
+                flecs_errstr(ecs_id_str(world, ids->array[i])));
+    }
+
+    ecs_check(!diff.removed.count, ECS_INVALID_PARAMETER,
+        "ecs_table_bulk_add() ids remove ids from the table");
+
+    for (i = 0; data && i < ids->count; i ++) {
+        if (!data[i]) {
+            continue;
+        }
+
+        ecs_id_t id = ids->array[i];
+        ecs_component_record_t *cr = flecs_components_get(world, id);
+        ecs_check(cr != NULL && cr->type_info != NULL, ECS_INVALID_PARAMETER,
+            "component '%s' passed to ecs_table_bulk_add() with data "
+            "is a tag", flecs_errstr(ecs_id_str(world, id)));
+        ecs_check(!(cr->flags & (EcsIdSparse|EcsIdDontFragment)),
+            ECS_INVALID_PARAMETER,
+            "component '%s' passed to ecs_table_bulk_add() with data "
+            "is not stored in a table column",
+                flecs_errstr(ecs_id_str(world, id)));
+        const ecs_table_record_t *tr = flecs_component_get_table(cr, dst);
+        ecs_check(tr != NULL && tr->column != -1, ECS_INVALID_PARAMETER,
+            "component '%s' passed to ecs_table_bulk_add() with data "
+            "has no column", flecs_errstr(ecs_id_str(world, id)));
+    }
+
+    int32_t count = ecs_table_count(table);
+    int32_t row = 0;
+
+    flecs_defer_begin(world, world->stages[0]);
+
+    bool traversable = table->_->traversable_count != 0;
+    if (dst != table && count) {
+        row = ecs_table_count(dst);
+        flecs_table_merge(world, dst, table);
+    }
+
+    for (i = 0; data && count && i < ids->count; i ++) {
+        if (!data[i]) {
+            continue;
+        }
+
+        ecs_id_t id = ids->array[i];
+        ecs_component_record_t *cr = flecs_components_get(world, id);
+        const ecs_type_info_t *ti = cr->type_info;
+        const ecs_table_record_t *tr = flecs_component_get_table(cr, dst);
+        ecs_column_t *column = &dst->data.columns[tr->column];
+        flecs_type_info_copy(ECS_ELEM(column->data, ti->size, row),
+            data[i], count, ti);
+        flecs_table_mark_dirty(world, dst, id);
+    }
+
+    if (dst != table && count) {
+        ecs_table_diff_t td;
+        flecs_table_diff_build_noalloc(&diff, &td);
+        if (traversable) {
+            flecs_update_component_monitors(world, &td.added, NULL);
+        }
+
+        flecs_actions_move_add(world, dst, table, row, count, &td, 0, true, 0,
+            true);
+    }
+
+    for (i = 0; data && count && i < ids->count; i ++) {
+        if (data[i]) {
+            ecs_type_t set_type = { .array = &ids->array[i], .count = 1 };
+            flecs_notify_on_set_ids(world, dst, row, count, &set_type);
+        }
+    }
+
+    flecs_defer_end(world, world->stages[0]);
+    flecs_table_diff_builder_fini(world, &diff);
+    return dst;
+error:
+    flecs_table_diff_builder_fini(world, &diff);
+    return NULL;
+}
+
 static
 void flecs_check_component(
     ecs_world_t *world,
